@@ -70,6 +70,7 @@ npm run dev          # http://localhost:5173
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Type-checks (`tsc --noEmit`), then bundles to `dist/` |
 | `npm run preview` | Serves the production build on http://localhost:4173 |
+| `npm run test:startup` | Opens the preview in Chrome and checks the exhibit with WebGL enabled and disabled |
 | `npm test` | Content-integrity tests (`node --test`): every pipe, scenario step, decision and mission references a real component; Founder copy meets the sentence and jargon rules |
 | `npm run shots` | Headless visual smoke test: drives every mode and screenshots it to `/tmp/sw-shots` (needs Google Chrome at `/usr/bin/google-chrome` and `npm run preview` running) |
 
@@ -89,6 +90,7 @@ Deep links work out of the box: `?focus=backend`, `?mode=scenarios`, `?mode=deci
 ## How it's built
 
 - **Three.js, procedural everything.** Every station is assembled from primitives in code (`src/three/parts/`). No external models, no textures, no asset downloads. Soft shadows, a room environment for reflections, and a bloom pass so packets glow.
+- When WebGL is unavailable, a software renderer draws the same 3D machine on a 2D canvas. Orbit controls, component picking, tours, and animated packets use the same scene.
 - **TypeScript + Vite, no UI framework.** A small store (`src/app/store.ts`) is the single source of truth; the 3D scene and the DOM panels both subscribe to it. Total source is under 10k lines.
 - **Content is data.** All educational copy lives in `src/content/` as typed objects, which is why the tests can prove every reference resolves.
 - **Performance budget.** Instanced packets, cached geometries, capped pixel ratio, and adaptive quality that drops resolution and then bloom if the frame rate sags. Rendering pauses when the tab is hidden. `prefers-reduced-motion` is respected.

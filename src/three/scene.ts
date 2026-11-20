@@ -6,18 +6,19 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { SoftwareRenderer } from './softwareRenderer';
 import { PALETTE } from './palette';
 import { stepTweens, tween, easeInOutCubic, clamp } from './tween';
 import type { ViewPreset, Quality } from '../app/store';
 
 export interface SceneContext {
-  renderer: THREE.WebGLRenderer;
+  renderer: THREE.WebGLRenderer | SoftwareRenderer;
   labelRenderer: CSS2DRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
-  composer: EffectComposer;
-  bloom: UnrealBloomPass;
+  composer: EffectComposer | null;
+  bloom: UnrealBloomPass | null;
   sun: THREE.DirectionalLight;
   clock: THREE.Clock;
   container: HTMLElement;
@@ -39,36 +40,54 @@ export interface SceneContext {
 export const WORLD_CENTER = new THREE.Vector3(0, 0, 0);
 export const WORLD_RADIUS = 21;
 
-export function createScene(container: HTMLElement): SceneContext {
+function createGraphics(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance', stencil: false })
-    ?? canvas.getContext('webgl2');
-  if (!context) throw new DOMException('WebGL 2 is unavailable.', 'NotSupportedError');
-  const renderer = new THREE.WebGLRenderer({ canvas, context, alpha: false });
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setClearColor(PALETTE.background, 1);
-  container.appendChild(renderer.domElement);
-  renderer.domElement.classList.add('gl-canvas');
+  try {
+    const context = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance', stencil: false })
+      ?? canvas.getContext('webgl2');
+    if (context) {
+      const renderer = new THREE.WebGLRenderer({ canvas, context, alpha: false });
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.setClearColor(PALETTE.background, 1);
 
-  const labelRenderer = new CSS2DRenderer();
-  labelRenderer.domElement.className = 'label-layer';
-  container.appendChild(labelRenderer.domElement);
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const room = new RoomEnvironment();
+      scene.environment = pmrem.fromScene(room, 0.04).texture;
+      scene.environmentIntensity = 0.45;
+      room.dispose();
+      pmrem.dispose();
 
+      const target = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType });
+      const composer = new EffectComposer(renderer, target);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.45, 1.2);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+      return { renderer, composer, bloom, render: () => composer.render() };
+    }
+  } catch (error) {
+    console.warn('Switching the exhibit to software rendering.', error);
+  }
+  const renderer = new SoftwareRenderer(document.createElement('canvas'));
+  return { renderer, composer: null, bloom: null, render: () => renderer.render(scene, camera) };
+}
+
+export function createScene(container: HTMLElement): SceneContext {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(PALETTE.background);
   scene.fog = new THREE.Fog(PALETTE.fog, 95, 190);
-
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.45;
-  pmrem.dispose();
-
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
   camera.position.set(-22, 20, 30);
+
+  const { renderer, composer, bloom, render } = createGraphics(scene, camera);
+  container.appendChild(renderer.domElement);
+  renderer.domElement.classList.add('gl-canvas');
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.domElement.className = 'label-layer';
+  container.appendChild(labelRenderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -101,16 +120,6 @@ export function createScene(container: HTMLElement): SceneContext {
   fill.position.set(24, 14, -18);
   scene.add(fill);
 
-  // Post-processing
-  const size = new THREE.Vector2();
-  renderer.getSize(size);
-  const target = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType });
-  const composer = new EffectComposer(renderer, target);
-  composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.45, 1.2);
-  composer.addPass(bloom);
-  composer.addPass(new OutputPass());
-
   const clock = new THREE.Clock();
   const onFrame = new Set<(dt: number, t: number) => void>();
 
@@ -122,9 +131,9 @@ export function createScene(container: HTMLElement): SceneContext {
   function applyQuality() {
     const base = Math.min(window.devicePixelRatio || 1, dprCap);
     renderer.setPixelRatio(base);
-    composer.setPixelRatio(base);
-    bloom.enabled = bloomEnabled;
-    renderer.shadowMap.enabled = quality !== 'low';
+    composer?.setPixelRatio(base);
+    if (bloom) bloom.enabled = bloomEnabled;
+    if (renderer instanceof THREE.WebGLRenderer) renderer.shadowMap.enabled = quality !== 'low';
     sun.castShadow = quality !== 'low';
     resize();
   }
@@ -164,9 +173,9 @@ export function createScene(container: HTMLElement): SceneContext {
     camera.setViewOffset(w, h, viewOffsetX, viewOffsetY, w, h);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
-    composer.setSize(w, h);
+    composer?.setSize(w, h);
     labelRenderer.setSize(w, h);
-    bloom.setSize(w, h);
+    bloom?.setSize(w, h);
   }
   const ro = new ResizeObserver(resize);
   ro.observe(container);
@@ -237,7 +246,7 @@ export function createScene(container: HTMLElement): SceneContext {
     stepTweens(Math.min(raw, 0.3)); // camera/UI tweens follow real time
     controls.update();
     for (const fn of onFrame) fn(dt, t);
-    composer.render();
+    render();
     labelRenderer.render(scene, camera);
 
     // fps estimate + adaptive quality
@@ -289,7 +298,7 @@ export function createScene(container: HTMLElement): SceneContext {
     dispose: () => {
       cancelAnimationFrame(rafId);
       ro.disconnect();
-      renderer.dispose();
+      if (renderer instanceof THREE.WebGLRenderer) renderer.dispose();
     },
   };
 }
