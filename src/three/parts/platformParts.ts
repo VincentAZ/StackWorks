@@ -191,6 +191,7 @@ export function buildInfra(pos: THREE.Vector3, size: { w: number; d: number }): 
   shell.push(slab);
   const top = mesh(roundedBoxGeo(w - 0.6, 0.12, d - 0.6, 0.1), topMat, [0, 0.0, 0]);
   top.receiveShadow = true;
+  top.userData.shadowFloor = true;
   g.add(top);
   // trim strip
   const trim = mesh(roundedBoxGeo(w + 0.4, 0.18, d + 0.4, 0.1), mat(PALETTE.platformTrim, { roughness: 0.8 }), [0, -1.0, 0]);

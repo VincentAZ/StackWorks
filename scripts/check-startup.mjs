@@ -10,6 +10,7 @@ for (const webgl of [true, false]) {
   });
   try {
     const page = await browser.newPage();
+    if (!webgl) await page.setViewport({ width: 5120, height: 1440, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(url);
@@ -22,6 +23,8 @@ for (const webgl of [true, false]) {
     if (webgl) {
       assert.ok(await canvas.evaluate((el) => !!el.getContext('webgl2')));
     } else {
+      const dimensions = await canvas.evaluate((el) => [el.width, el.height]);
+      assert.deepEqual(dimensions, [5120, 1440], 'ultrawide output uses display pixels');
       // Read the actual canvas, so an empty scene with working controls fails.
       await page.waitForFunction(() => {
         const canvas = document.querySelector('.gl-canvas');
@@ -43,6 +46,11 @@ for (const webgl of [true, false]) {
     await page.waitForSelector('.insp__body', { visible: true });
 
     if (!webgl) {
+      await page.setViewport({ width: 790, height: 1116, deviceScaleFactor: 2 });
+      await page.waitForFunction(() => {
+        const canvas = document.querySelector('.gl-canvas');
+        return canvas.width === 1580 && canvas.height === 2232;
+      });
       await page.setJavaScriptEnabled(false);
       await page.reload();
       assert.equal(await page.$$eval('#component-guide details', (entries) => entries.length), 17);

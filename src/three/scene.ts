@@ -72,7 +72,7 @@ function createGraphics(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
     console.warn('Switching the exhibit to software rendering.', error);
   }
   const renderer = new SoftwareRenderer(document.createElement('canvas'));
-  return { renderer, composer: null, bloom: null, render: () => renderer.render(scene, camera) };
+  return { renderer, composer: null, bloom: null, render: (sun: THREE.DirectionalLight) => renderer.render(scene, camera, sun) };
 }
 
 export function createScene(container: HTMLElement): SceneContext {
@@ -130,7 +130,7 @@ export function createScene(container: HTMLElement): SceneContext {
 
   function applyQuality() {
     const base = Math.min(window.devicePixelRatio || 1, dprCap);
-    renderer.setPixelRatio(base);
+    if (renderer instanceof THREE.WebGLRenderer) renderer.setPixelRatio(base);
     composer?.setPixelRatio(base);
     if (bloom) bloom.enabled = bloomEnabled;
     if (renderer instanceof THREE.WebGLRenderer) renderer.shadowMap.enabled = quality !== 'low';
@@ -172,6 +172,14 @@ export function createScene(container: HTMLElement): SceneContext {
     camera.aspect = w / h;
     camera.setViewOffset(w, h, viewOffsetX, viewOffsetY, w, h);
     camera.updateProjectionMatrix();
+    if (renderer instanceof SoftwareRenderer) {
+      const nativeRatio = Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 2);
+      // On the CPU, adapt supersampling while retaining the display resolution.
+      let samples = 2;
+      if (dprCap <= 1) samples = 1;
+      else if (dprCap < 1.75) samples = 1.5;
+      renderer.setPixelRatio(nativeRatio, samples);
+    }
     renderer.setSize(w, h, false);
     composer?.setSize(w, h);
     labelRenderer.setSize(w, h);
@@ -179,8 +187,13 @@ export function createScene(container: HTMLElement): SceneContext {
   }
   const ro = new ResizeObserver(resize);
   ro.observe(container);
-  resize();
-  applyQuality();
+  let resolutionQuery: MediaQueryList;
+  function watchResolution() {
+    resolutionQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    resolutionQuery.addEventListener('change', watchResolution, { once: true });
+    applyQuality();
+  }
+  watchResolution();
 
   // adaptive quality: watch frame times
   const frameTimes: number[] = [];
@@ -246,7 +259,7 @@ export function createScene(container: HTMLElement): SceneContext {
     stepTweens(Math.min(raw, 0.3)); // camera/UI tweens follow real time
     controls.update();
     for (const fn of onFrame) fn(dt, t);
-    render();
+    render(sun);
     labelRenderer.render(scene, camera);
 
     // fps estimate + adaptive quality
@@ -298,6 +311,7 @@ export function createScene(container: HTMLElement): SceneContext {
     dispose: () => {
       cancelAnimationFrame(rafId);
       ro.disconnect();
+      resolutionQuery.removeEventListener('change', watchResolution);
       if (renderer instanceof THREE.WebGLRenderer) renderer.dispose();
     },
   };
