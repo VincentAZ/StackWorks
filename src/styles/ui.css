@@ -322,7 +322,7 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 2px 6px; border-radius
   .topbar { height: 52px; gap: 6px; padding: 0 6px; }
   .modes { overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; margin: 0; }
   .mode { padding: 7px 9px; flex: none; }
-  .topbar__right .btn:not(.topbar__search) { display: none; }
+  .topbar__help { display: none; }
   .brand__text strong { font-size: 14px; }
   .brand__text small { display: none; }
   .topbar__menu { display: inline-flex; }

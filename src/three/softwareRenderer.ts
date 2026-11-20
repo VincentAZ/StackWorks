@@ -64,6 +64,7 @@ export class SoftwareRenderer {
   private offsetX = 0;
   private offsetY = 0;
   private image: ImageData;
+  private resolved?: ImageData;
   private pixels: Uint32Array;
   private depth: Float32Array;
   private geometries = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
@@ -181,8 +182,40 @@ export class SoftwareRenderer {
       this.context.putImageData(this.image, viewRect.left, viewRect.top, 0, 0, w, h);
       return;
     }
+    if (this.sampleScale > 2 && Number.isInteger(viewRect.scale)) {
+      this.resolveSamples(viewRect);
+      return;
+    }
     this.backingContext.putImageData(this.image, 0, 0, 0, 0, w, h);
-    this.context.drawImage(this.backing, 0, 0, w, h, viewRect.left, viewRect.top, viewRect.width, viewRect.height);
+    this.context.drawImage(this.backing, 0, 0, viewRect.width * viewRect.scale, viewRect.height * viewRect.scale,
+      viewRect.left, viewRect.top, viewRect.width, viewRect.height);
+  }
+
+  // Average every sample in a whole-pixel footprint. Canvas drawImage can
+  // discard off-center samples when reducing a 3× image to display size.
+  private resolveSamples({ left, top, width, height, scale }: SoftwareViewport) {
+    if (this.resolved?.width !== width || this.resolved.height !== height) {
+      this.resolved = this.context.createImageData(width, height);
+    }
+    const output = new Uint32Array(this.resolved.data.buffer);
+    const stride = this.image.width;
+    const count = scale * scale;
+    let dest = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let start = y * scale * stride + x * scale;
+        let redBlue = 0, green = 0;
+        for (let row = 0; row < scale; row++, start += stride) {
+          for (let i = start; i < start + scale; i++) {
+            const color = this.pixels[i];
+            redBlue += color & 0x00ff00ff;
+            green += (color >>> 8) & 255;
+          }
+        }
+        output[dest++] = pixel((redBlue & 65535) / count + 0.5, green / count + 0.5, (redBlue >>> 16) / count + 0.5);
+      }
+    }
+    this.context.putImageData(this.resolved, left, top);
   }
 
   private drawObject(object: Drawable) {

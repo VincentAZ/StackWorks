@@ -7,6 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { SoftwareRenderer } from './softwareRenderer';
+import { highQualityScale } from './resolution';
 import { PALETTE } from './palette';
 import { stepTweens, tween, easeInOutCubic, clamp } from './tween';
 import type { ViewPreset, Quality } from '../app/store';
@@ -83,6 +84,11 @@ export function createScene(container: HTMLElement): SceneContext {
   camera.position.set(-22, 20, 30);
 
   const { renderer, composer, bloom, render } = createGraphics(scene, camera);
+  let maxTargetSize = 0;
+  if (renderer instanceof THREE.WebGLRenderer) {
+    const gl = renderer.getContext();
+    maxTargetSize = Math.min(renderer.capabilities.maxTextureSize, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+  }
   container.appendChild(renderer.domElement);
   renderer.domElement.classList.add('gl-canvas');
   const labelRenderer = new CSS2DRenderer();
@@ -131,7 +137,6 @@ export function createScene(container: HTMLElement): SceneContext {
   function applyQuality() {
     const base = Math.min(window.devicePixelRatio || 1, dprCap);
     if (renderer instanceof THREE.WebGLRenderer) renderer.setPixelRatio(base);
-    composer?.setPixelRatio(base);
     if (bloom) bloom.enabled = bloomEnabled;
     if (renderer instanceof THREE.WebGLRenderer) renderer.shadowMap.enabled = quality !== 'low';
     sun.castShadow = quality !== 'low';
@@ -175,15 +180,23 @@ export function createScene(container: HTMLElement): SceneContext {
     if (renderer instanceof SoftwareRenderer) {
       const nativeRatio = Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 2);
       // On the CPU, adapt supersampling while retaining the display resolution.
-      let samples = 2;
+      let samples = quality === 'high' ? 3 : 2;
       if (dprCap <= 1) samples = 1;
       else if (dprCap < 1.75) samples = 1.5;
       renderer.setPixelRatio(nativeRatio, samples);
     }
     renderer.setSize(w, h, false);
-    composer?.setSize(w, h);
+    if (composer) {
+      const { width, height } = renderer.domElement;
+      const scale = quality === 'high'
+        ? highQualityScale(width, height, Math.min(1.5, maxTargetSize / Math.max(width, height)))
+        : 1;
+      // Size the offscreen passes in physical pixels. OutputPass resolves them
+      // to the display-sized canvas, leaving labels and picking in CSS pixels.
+      composer.setSize(Math.floor(width * scale), Math.floor(height * scale));
+    }
     labelRenderer.setSize(w, h);
-    bloom?.setSize(w, h);
+    if (quality !== 'high') bloom?.setSize(w, h);
   }
   const ro = new ResizeObserver(resize);
   ro.observe(container);

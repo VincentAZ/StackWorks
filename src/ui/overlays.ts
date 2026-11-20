@@ -74,15 +74,21 @@ export function openSettings() {
     { v: 'balanced', label: 'Balanced' },
     { v: 'low', label: 'Low' },
   ];
-  const seg = h('div', { class: 'seg' }, qualities.map((q) => h('button', { class: `seg__btn ${s.quality === q.v ? 'is-active' : ''}`, onClick: (e: Event) => {
-    store.set({ quality: q.v });
-    seg.querySelectorAll('.seg__btn').forEach((b) => b.classList.remove('is-active'));
-    (e.currentTarget as HTMLElement).classList.add('is-active');
-  } }, q.label)));
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Render quality' }, qualities.map((q) =>
+    h('button', { class: `seg__btn ${s.quality === q.v ? 'is-active' : ''}`, 'aria-pressed': String(s.quality === q.v),
+      onClick: (e: Event) => {
+        store.set({ quality: q.v });
+        for (const button of seg.querySelectorAll('button')) {
+          const selected = button === e.currentTarget;
+          button.classList.toggle('is-active', selected);
+          button.setAttribute('aria-pressed', String(selected));
+        }
+      },
+    }, q.label)));
   const fps = h('span', { class: 'muted' }, `${Math.round(runtime.scene.fps())} fps`);
   const body = h('div', { class: 'settings' },
     h('div', { class: 'setting' }, h('span', null, 'Reading lens', h('small', null, 'Founder: plain language, analogy first. Builder: the technical version.')), createLensToggle()),
-    h('label', { class: 'setting' }, h('span', null, 'Render quality', h('small', null, 'Auto lowers quality if the frame rate drops. ', fps)), seg),
+    h('div', { class: 'setting' }, h('span', null, 'Render quality', h('small', null, 'High smooths fine edges. Auto adjusts to your frame rate. ', fps)), seg),
     h('label', { class: 'setting' }, h('input', { type: 'checkbox', checked: s.reduceMotion, onchange: (e: Event) => store.set({ reduceMotion: (e.target as HTMLInputElement).checked }) }), h('span', null, 'Reduce motion', h('small', null, 'Instant camera moves and shorter animations'))),
     h('label', { class: 'setting' }, h('input', { type: 'checkbox', checked: s.labels, onchange: (e: Event) => store.set({ labels: (e.target as HTMLInputElement).checked }) }), h('span', null, 'Show labels')),
     h('label', { class: 'setting' }, h('input', { type: 'checkbox', checked: s.ambientFlow, onchange: (e: Event) => store.set({ ambientFlow: (e.target as HTMLInputElement).checked }) }), h('span', null, 'Ambient traffic', h('small', null, 'Background packets flowing through the pipes'))),

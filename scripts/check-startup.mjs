@@ -38,6 +38,24 @@ for (const webgl of [true, false]) {
         return colors.size > 32;
       });
     }
+    await page.click('.topbar [title="Settings"]');
+    await page.locator('::-p-aria(High[role="button"])').click();
+    await page.waitForFunction(() => {
+      const { store, scene } = window.__stackworks;
+      if (store.get().quality !== 'high') return false;
+      const { renderer, composer } = scene;
+      if (composer) return composer.readBuffer.width === Math.floor(renderer.domElement.width * 1.5);
+      return renderer.viewport.scale === 3 && renderer.domElement.width === 5120;
+    });
+    await page.locator('::-p-aria(Auto[role="button"])').click();
+    await page.waitForFunction(() => {
+      const { store, scene } = window.__stackworks;
+      return store.get().quality === 'auto' && (scene.composer
+        ? scene.composer.readBuffer.width === scene.renderer.domElement.width
+        : scene.renderer.sampleScale <= 2);
+    });
+    await page.click('.modal__head [title="Close"]');
+    await page.waitForSelector('.modal-backdrop', { hidden: true });
     await page.click('.topbar__search');
     const input = await page.waitForSelector('[role="dialog"] input', { visible: true });
     await input.type('backend');

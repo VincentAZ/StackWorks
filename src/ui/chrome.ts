@@ -27,7 +27,7 @@ export function createTopbar(opts: { onSearch: () => void; onSettings: () => voi
     h('div', { class: 'topbar__right' },
       button('Search', { icon: 'search', class: 'btn--ghost topbar__search', title: 'Search (press /)', onClick: opts.onSearch }),
       button('', { icon: 'settings', class: 'btn--ghost btn--icon', title: 'Settings', onClick: opts.onSettings }),
-      button('', { icon: 'help', class: 'btn--ghost btn--icon', title: 'Help & shortcuts (?)', onClick: opts.onHelp }),
+      button('', { icon: 'help', class: 'btn--ghost btn--icon topbar__help', title: 'Help & shortcuts (?)', onClick: opts.onHelp }),
     ),
   );
   store.on(['mode', 'panelOpen'], (s) => {

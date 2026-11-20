@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { highQualityScale } from './resolution';
 
 import type { SurfaceMaterial } from './softwareLighting';
 
@@ -48,7 +49,8 @@ export class SoftwareViewport {
     this.width = Math.max(1, Math.min(width, right) - this.left);
     this.height = Math.max(1, Math.min(height, bottom) - this.top);
     const area = this.width * this.height;
-    if (maxScale >= 2 && area * 4 <= 6_000_000) this.scale = 2;
+    if (maxScale > 2) this.scale = highQualityScale(this.width, this.height, maxScale);
+    else if (maxScale >= 2 && area * 4 <= 6_000_000) this.scale = 2;
     else if (maxScale >= 1.5 && area * 2.25 <= 6_000_000) this.scale = 1.5;
     else this.scale = 1;
   }
