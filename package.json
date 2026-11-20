@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.mjs",
+    "test:startup": "node scripts/check-startup.mjs",
     "shots": "node scripts/shoot.mjs http://localhost:4173/ /tmp/sw-shots"
   },
   "dependencies": {

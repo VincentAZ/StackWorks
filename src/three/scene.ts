@@ -40,7 +40,11 @@ export const WORLD_CENTER = new THREE.Vector3(0, 0, 0);
 export const WORLD_RADIUS = 21;
 
 export function createScene(container: HTMLElement): SceneContext {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance', stencil: false });
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance', stencil: false })
+    ?? canvas.getContext('webgl2');
+  if (!context) throw new DOMException('WebGL 2 is unavailable.', 'NotSupportedError');
+  const renderer = new THREE.WebGLRenderer({ canvas, context, alpha: false });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;

@@ -21,6 +21,15 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; }
 #app { position: fixed; inset: 0; }
+#app[inert] { visibility: hidden; }
+#component-guide { position: fixed; inset: 0; overflow: auto; padding: 32px 20px; }
+.guide-content { max-width: 42rem; margin: 0 auto; line-height: 1.55; }
+.guide-content h1 { margin: 0; }
+.guide-content h2 { margin: 1.5em 0 .5em; }
+.guide-content a { color: var(--brass-ink); }
+.guide-content details { padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface-solid); }
+.guide-content summary { cursor: pointer; padding: 12px 0; font-weight: 700; }
+.guide-content details p { margin: 0; padding: 0 0 16px; }
 .stage { position: absolute; inset: 0; }
 .gl-canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
 .label-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }

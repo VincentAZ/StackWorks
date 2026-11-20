@@ -1,4 +1,3 @@
-import './styles/base.css';
 import './styles/ui.css';
 import { createScene } from './three/scene';
 import { Machine } from './three/machine';

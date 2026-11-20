@@ -7,9 +7,19 @@
     <meta name="description" content="StackWorks: an interactive 3D machine that teaches how modern software applications work, and how to build them with AI writing the code." />
     <title>StackWorks — How software works, as a machine you can explore</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <main id="component-guide">
+      <div class="guide-content">
+        <h1>StackWorks</h1>
+        <p id="exhibit-status" role="status">Explore the parts of a software application below.</p>
+        <a href="">Reload the 3D exhibit</a>
+        <h2>Component guide</h2>
+        <!-- component-guide-entries -->
+      </div>
+    </main>
+    <div id="app" inert></div>
+    <script type="module" src="/src/start.ts"></script>
   </body>
 </html>
